@@ -127,9 +127,16 @@ h2 {
   gap: 22px;
 }
 
-.split section {
+.split section,
+.network {
   display: grid;
   gap: 12px;
+}
+
+.field-row {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 10px;
 }
 
 .sources {

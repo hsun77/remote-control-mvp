@@ -1,0 +1,26 @@
+services:
+  signaling:
+    build:
+      context: .
+      dockerfile: apps/server/Dockerfile
+    restart: unless-stopped
+    ports:
+      - "${SIGNALING_PORT:-4141}:4141"
+
+  turn:
+    image: coturn/coturn:4.6
+    restart: unless-stopped
+    network_mode: host
+    command:
+      - --listening-port=${TURN_PORT:-3478}
+      - --min-port=${TURN_MIN_PORT:-49160}
+      - --max-port=${TURN_MAX_PORT:-49200}
+      - --user=${TURN_USER}:${TURN_PASSWORD}
+      - --realm=${TURN_REALM:-remote-control-mvp}
+      - --external-ip=${PUBLIC_IP}
+      - --fingerprint
+      - --lt-cred-mech
+      - --no-cli
+      - --no-tls
+      - --no-dtls
+      - --log-file=stdout

@@ -10,6 +10,7 @@
 - 同一应用支持 host / viewer 两种模式
 - Rust 原生输入 helper，目标支持 macOS / Windows 输入注入
 - 信令服务支持开发用 `ws://`，也支持证书驱动的 `wss://`
+- 支持配置 TURN 中继，用于杭州/北京这类异地网络
 
 ## 运行
 
@@ -31,6 +32,49 @@ npm run dev:desktop
 2. 两台机器都启动 desktop。
 3. 被控端输入信令地址，比如 `ws://192.168.1.10:4141`，点击 `Share this computer`。
 4. 控制端输入同一个信令地址和被控端显示的房间码，点击 `Connect`。
+
+## 异地公网使用
+
+杭州和北京不在同一个局域网时，需要一台公网服务器。推荐使用任意云厂商的 1 核 1G Linux VPS，带公网 IPv4。
+
+服务器需要开放这些端口：
+
+- `4141/tcp`：信令服务
+- `3478/tcp` 和 `3478/udp`：TURN
+- `49160-49200/udp`：TURN 媒体中继端口
+
+在公网服务器上部署：
+
+```bash
+git clone https://github.com/hsun77/remote-control-mvp.git
+cd remote-control-mvp
+cp .env.example .env
+```
+
+编辑 `.env`：
+
+```text
+PUBLIC_IP=你的公网服务器IP
+TURN_USER=remote
+TURN_PASSWORD=换成一个长随机密码
+```
+
+启动：
+
+```bash
+docker compose up -d --build
+```
+
+两台电脑的 App 都填写同一组配置：
+
+```text
+Signaling URL: ws://你的公网服务器IP:4141
+TURN URL: turn:你的公网服务器IP:3478
+User: remote
+Password: 你在 .env 里设置的 TURN_PASSWORD
+```
+
+然后被控电脑点 `Share this computer`，控制电脑输入 6 位房间码点 `Connect`。
 
 ## 加密说明
 
@@ -55,4 +99,4 @@ macOS 被控端需要系统授权：
 
 - 第一版默认按主显示器坐标注入输入。
 - 键盘映射覆盖常见按键和单字符输入，高级组合键后续补齐。
-- NAT 很复杂的网络可能需要 TURN 服务器，当前版本先适合局域网或可直连环境。
+- TURN 当前使用静态用户名和密码，适合自用 MVP；多人产品应改成短期凭证。

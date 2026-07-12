@@ -2,6 +2,9 @@ const $ = (id) => document.getElementById(id);
 
 const statusEl = $("status");
 const serverUrlEl = $("serverUrl");
+const turnUrlEl = $("turnUrl");
+const turnUserEl = $("turnUser");
+const turnPasswordEl = $("turnPassword");
 const roomCodeEl = $("roomCode");
 const joinCodeEl = $("joinCode");
 const shareBtn = $("shareBtn");
@@ -23,10 +26,25 @@ let role = null;
 let lastMoveSentAt = 0;
 let lastNativeInputError = "";
 
-const iceServers = [
-  { urls: "stun:stun.l.google.com:19302" },
-  { urls: "stun:stun.cloudflare.com:3478" }
-];
+function getIceServers() {
+  const servers = [
+    { urls: "stun:stun.l.google.com:19302" },
+    { urls: "stun:stun.cloudflare.com:3478" }
+  ];
+  const turnUrl = turnUrlEl.value.trim();
+  const username = turnUserEl.value.trim();
+  const credential = turnPasswordEl.value;
+
+  if (turnUrl) {
+    servers.push({
+      urls: turnUrl,
+      username,
+      credential
+    });
+  }
+
+  return servers;
+}
 
 function setStatus(text) {
   statusEl.textContent = text;
@@ -98,7 +116,7 @@ function connectSignaling() {
 }
 
 function createPeerConnection() {
-  const peer = new RTCPeerConnection({ iceServers });
+  const peer = new RTCPeerConnection({ iceServers: getIceServers() });
 
   peer.onicecandidate = (event) => {
     if (event.candidate) {
