@@ -300,6 +300,11 @@ async function shareThisComputer() {
     return;
   }
 
+  const inputStatus = await window.remoteDesktop.nativeInputStatus();
+  if (!inputStatus.ok && inputStatus.error) {
+    setStatus(inputStatus.error);
+  }
+
   role = "host";
   setConnectedState(true);
   setStatus("Opening screen capture");
@@ -475,4 +480,10 @@ window.remoteDesktop
     deviceIdEl.textContent = id;
   })
   .catch((error) => setStatus(error.message));
+window.remoteDesktop
+  .nativeInputStatus()
+  .then((result) => {
+    if (!result.ok && result.error) setStatus(result.error);
+  })
+  .catch(() => {});
 loadSources().catch((error) => setStatus(error.message));

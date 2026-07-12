@@ -176,6 +176,38 @@ function ensureInputHelper() {
   return { ok: true, child: inputHelper };
 }
 
+function checkInputPermission() {
+  const bin = helperPath();
+  if (!fs.existsSync(bin)) {
+    return Promise.resolve({
+      ok: false,
+      error: `Native input helper not built. Run: npm run build:helper`
+    });
+  }
+
+  return new Promise((resolve) => {
+    const child = spawn(bin, ["--check-accessibility"], { stdio: ["ignore", "pipe", "pipe"] });
+    let stdout = "";
+    let stderr = "";
+
+    child.stdout.on("data", (chunk) => {
+      stdout += chunk.toString();
+    });
+    child.stderr.on("data", (chunk) => {
+      stderr += chunk.toString();
+    });
+    child.on("close", (code) => {
+      resolve({
+        ok: code === 0,
+        stdout: stdout.trim(),
+        error: stderr.trim()
+      });
+    });
+  });
+}
+
+ipcMain.handle("native-input:status", () => checkInputPermission());
+
 ipcMain.handle("native-input:send", async (_event, inputEvent) => {
   const helper = ensureInputHelper();
   if (!helper.ok) return helper;

@@ -2,6 +2,48 @@ use enigo::{Enigo, Key, KeyboardControllable, MouseButton, MouseControllable};
 use serde::Deserialize;
 use std::io::{self, BufRead};
 
+#[cfg(target_os = "macos")]
+mod accessibility {
+    use core_foundation::base::{CFTypeRef, TCFType};
+    use core_foundation::boolean::CFBoolean;
+    use core_foundation::dictionary::CFDictionary;
+    use core_foundation::string::CFString;
+
+    #[link(name = "ApplicationServices", kind = "framework")]
+    extern "C" {
+        fn AXIsProcessTrusted() -> bool;
+        fn AXIsProcessTrustedWithOptions(options: CFTypeRef) -> bool;
+    }
+
+    pub fn is_trusted() -> bool {
+        unsafe { AXIsProcessTrusted() }
+    }
+
+    pub fn request_if_needed() -> bool {
+        if is_trusted() {
+            return true;
+        }
+
+        let prompt_key = CFString::new("AXTrustedCheckOptionPrompt");
+        let prompt_value = CFBoolean::true_value();
+        let options: CFDictionary<CFString, CFBoolean> =
+            CFDictionary::from_CFType_pairs(&[(prompt_key, prompt_value)]);
+
+        unsafe { AXIsProcessTrustedWithOptions(options.as_CFTypeRef()) }
+    }
+}
+
+#[cfg(not(target_os = "macos"))]
+mod accessibility {
+    pub fn is_trusted() -> bool {
+        true
+    }
+
+    pub fn request_if_needed() -> bool {
+        true
+    }
+}
+
 #[derive(Debug, Deserialize)]
 struct DisplayBounds {
     x: i32,
@@ -123,6 +165,24 @@ fn handle_event(enigo: &mut Enigo, event: &InputEvent) {
 }
 
 fn main() {
+    if std::env::args().any(|arg| arg == "--check-accessibility") {
+        if accessibility::request_if_needed() {
+            println!("accessibility-ok");
+            std::process::exit(0);
+        }
+
+        eprintln!(
+            "macOS Accessibility permission is required. Enable Remote Control MVP and native-input-helper in System Settings > Privacy & Security > Accessibility, then restart Remote Control MVP."
+        );
+        std::process::exit(2);
+    }
+
+    if !accessibility::request_if_needed() {
+        eprintln!(
+            "macOS Accessibility permission is required. Enable Remote Control MVP and native-input-helper in System Settings > Privacy & Security > Accessibility, then restart Remote Control MVP."
+        );
+    }
+
     let stdin = io::stdin();
     let mut enigo = Enigo::new();
 
