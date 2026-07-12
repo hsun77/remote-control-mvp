@@ -219,7 +219,15 @@ async function handleSignal(message) {
 }
 
 async function loadSources() {
-  const sources = await window.remoteDesktop.listSources();
+  let sources = [];
+  try {
+    sources = await window.remoteDesktop.listSources();
+  } catch (error) {
+    selectedSource = null;
+    sourcesEl.replaceChildren();
+    throw error;
+  }
+
   selectedSource = sources[0] ?? null;
   sourcesEl.replaceChildren(
     ...sources.map((source) => {
@@ -237,6 +245,25 @@ async function loadSources() {
   );
 }
 
+async function refreshSourcesForShare() {
+  if (selectedSource) return true;
+
+  setStatus("Refreshing screen sources");
+  try {
+    await loadSources();
+  } catch (error) {
+    setStatus(error.message);
+    return false;
+  }
+
+  if (!selectedSource) {
+    setStatus("No screen source available. Enable Screen Recording, then reopen this app or click Share again.");
+    return false;
+  }
+
+  return true;
+}
+
 async function getDesktopStream(sourceId) {
   return navigator.mediaDevices.getUserMedia({
     audio: false,
@@ -251,8 +278,7 @@ async function getDesktopStream(sourceId) {
 }
 
 async function shareThisComputer() {
-  if (!selectedSource) {
-    setStatus("No screen source available");
+  if (!(await refreshSourcesForShare())) {
     return;
   }
 
@@ -420,5 +446,8 @@ disconnectBtn.addEventListener("click", () => {
 });
 
 window.addEventListener("beforeunload", closeEverything);
+window.addEventListener("focus", () => {
+  if (!localStream) loadSources().catch((error) => setStatus(error.message));
+});
 attachViewerInput();
 loadSources().catch((error) => setStatus(error.message));
