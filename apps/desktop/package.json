@@ -1,0 +1,13 @@
+{
+  "name": "@remote-control/desktop",
+  "version": "0.1.0",
+  "private": true,
+  "main": "src/main.js",
+  "type": "module",
+  "scripts": {
+    "dev": "electron ."
+  },
+  "dependencies": {
+    "electron": "^43.1.0"
+  }
+}

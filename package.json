@@ -1,0 +1,22 @@
+{
+  "name": "remote-control-mvp",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Cross-platform encrypted remote desktop MVP.",
+  "scripts": {
+    "install:all": "npm install --workspaces",
+    "dev:server": "npm --workspace @remote-control/server run dev",
+    "dev:desktop": "npm --workspace @remote-control/desktop run dev",
+    "build:helper": "cargo build --manifest-path native-input-helper/Cargo.toml --release",
+    "package:mac": "npm run build:helper && electron-packager apps/desktop \"Remote Control MVP\" --platform=darwin --arch=x64 --out=dist --overwrite --asar --prune=false --extra-resource=native-input-helper/target/release/native-input-helper",
+    "dev": "npm-run-all --parallel dev:server dev:desktop"
+  },
+  "workspaces": [
+    "apps/server",
+    "apps/desktop"
+  ],
+  "devDependencies": {
+    "@electron/packager": "^20.0.2",
+    "npm-run-all": "^4.1.5"
+  }
+}
