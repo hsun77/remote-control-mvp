@@ -236,7 +236,10 @@ async function loadSources() {
       const item = document.createElement("button");
       item.className = `source${source.id === selectedSource?.id ? " selected" : ""}`;
       item.type = "button";
-      item.innerHTML = `<img alt="" src="${source.thumbnail}" /><span>${source.name}</span>`;
+      const thumb = source.thumbnail
+        ? `<img alt="" src="${source.thumbnail}" />`
+        : `<div class="source-placeholder">Pick</div>`;
+      item.innerHTML = `${thumb}<span>${source.name}</span>`;
       item.addEventListener("click", () => {
         selectedSource = source;
         [...sourcesEl.children].forEach((child) => child.classList.remove("selected"));
@@ -267,6 +270,15 @@ async function refreshSourcesForShare() {
 }
 
 async function getDesktopStream(sourceId) {
+  if (sourceId === "__picker__") {
+    return navigator.mediaDevices.getDisplayMedia({
+      audio: false,
+      video: {
+        frameRate: 30
+      }
+    });
+  }
+
   return navigator.mediaDevices.getUserMedia({
     audio: false,
     video: {

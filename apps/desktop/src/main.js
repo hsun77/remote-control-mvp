@@ -11,6 +11,13 @@ const projectRoot = path.resolve(__dirname, "../../..");
 let inputHelper = null;
 let lastInputHelperError = "";
 
+if (process.platform === "darwin") {
+  app.commandLine.appendSwitch(
+    "disable-features",
+    "ScreenCaptureKitPickerScreen,ScreenCaptureKitStreamPickerSonoma"
+  );
+}
+
 function readOrCreateDeviceId() {
   const file = path.join(app.getPath("userData"), "device.json");
   try {
@@ -71,17 +78,29 @@ app.on("window-all-closed", () => {
 });
 
 ipcMain.handle("desktop:list-sources", async () => {
-  const sources = await desktopCapturer.getSources({
-    types: ["screen"],
-    thumbnailSize: { width: 320, height: 180 }
-  });
+  try {
+    const sources = await desktopCapturer.getSources({
+      types: ["screen"],
+      thumbnailSize: { width: 320, height: 180 }
+    });
 
-  return sources.map((source) => ({
-    id: source.id,
-    name: source.name,
-    displayId: source.display_id,
-    thumbnail: source.thumbnail.toDataURL()
-  }));
+    return sources.map((source) => ({
+      id: source.id,
+      name: source.name,
+      displayId: source.display_id,
+      thumbnail: source.thumbnail.toDataURL()
+    }));
+  } catch (error) {
+    return [
+      {
+        id: "__picker__",
+        name: "Use macOS screen picker",
+        displayId: "",
+        thumbnail: "",
+        warning: error.message
+      }
+    ];
+  }
 });
 
 ipcMain.handle("desktop:display-info", () => {

@@ -192,6 +192,18 @@ h2 {
   background: #0b1118;
 }
 
+.source-placeholder {
+  display: grid;
+  place-items: center;
+  width: 86px;
+  height: 48px;
+  border-radius: 5px;
+  color: #7dd3c7;
+  background: #0b1118;
+  font-size: 12px;
+  font-weight: 800;
+}
+
 .source span {
   color: #d8e2eb;
   font-size: 13px;
