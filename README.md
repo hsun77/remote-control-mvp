@@ -96,6 +96,22 @@ macOS 被控端需要系统授权：
 - 屏幕录制：允许 Electron 采集桌面
 - 辅助功能：允许 `native-input-helper` 注入鼠标键盘
 
+## macOS 官方屏幕共享备用方案
+
+如果你主要想从 Windows 控制整台 Mac，最稳的是使用 Apple 官方 Screen Sharing/VNC，并通过 Tailscale 访问：
+
+```bash
+./scripts/enable-mac-screen-sharing.sh
+```
+
+脚本会要求输入一个 VNC 密码和 Mac 管理员密码。完成后，在 Windows 上用 VNC Viewer 连接：
+
+```text
+100.x.x.x:5900
+```
+
+其中 `100.x.x.x` 是被控 Mac 的 Tailscale IP，可用 `tailscale ip -4` 查看。
+
 ## 当前限制
 
 - 第一版默认按主显示器坐标注入输入。
