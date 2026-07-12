@@ -128,9 +128,30 @@ h2 {
 }
 
 .split section,
-.network {
+.network,
+.device-card {
   display: grid;
   gap: 12px;
+}
+
+.device-card {
+  padding: 12px;
+  border: 1px solid #2a3642;
+  border-radius: 7px;
+  background: #18202a;
+}
+
+.device-id {
+  color: #7dd3c7;
+  font-size: 22px;
+  font-weight: 800;
+  letter-spacing: 1px;
+}
+
+.hint {
+  color: #8ea0af;
+  font-size: 12px;
+  line-height: 1.4;
 }
 
 .field-row {

@@ -7,6 +7,7 @@
 - WebRTC 加密桌面流传输
 - WebRTC DataChannel 发送鼠标和键盘事件
 - 6 位房间码配对
+- 每台电脑首次启动会生成固定设备 ID
 - 同一应用支持 host / viewer 两种模式
 - Rust 原生输入 helper，目标支持 macOS / Windows 输入注入
 - 信令服务支持开发用 `ws://`，也支持证书驱动的 `wss://`
@@ -74,7 +75,7 @@ User: remote
 Password: 你在 .env 里设置的 TURN_PASSWORD
 ```
 
-然后被控电脑点 `Share this computer`，控制电脑输入 6 位房间码点 `Connect`。
+然后被控电脑点 `Share this computer`，控制电脑输入 6 位房间码点 `Connect`。界面上的设备 ID 是固定的，用于识别这台电脑；房间码仍然是每次连接生成的临时验证码。
 
 ## 加密说明
 

@@ -4,11 +4,34 @@ import { fileURLToPath } from "node:url";
 import { spawn } from "node:child_process";
 import os from "node:os";
 import fs from "node:fs";
+import crypto from "node:crypto";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const projectRoot = path.resolve(__dirname, "../../..");
 let inputHelper = null;
 let lastInputHelperError = "";
+
+function readOrCreateDeviceId() {
+  const file = path.join(app.getPath("userData"), "device.json");
+  try {
+    const parsed = JSON.parse(fs.readFileSync(file, "utf8"));
+    if (typeof parsed.deviceId === "string" && /^RC-[A-Z0-9]{4}-[A-Z0-9]{4}$/.test(parsed.deviceId)) {
+      return parsed.deviceId;
+    }
+  } catch {
+    // Create the id below.
+  }
+
+  fs.mkdirSync(path.dirname(file), { recursive: true });
+  const alphabet = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
+  let token = "";
+  for (let i = 0; i < 8; i += 1) {
+    token += alphabet[crypto.randomInt(alphabet.length)];
+  }
+  const deviceId = `RC-${token.slice(0, 4)}-${token.slice(4)}`;
+  fs.writeFileSync(file, JSON.stringify({ deviceId, createdAt: new Date().toISOString() }, null, 2));
+  return deviceId;
+}
 
 function helperPath() {
   const exe = process.platform === "win32" ? "native-input-helper.exe" : "native-input-helper";
@@ -74,6 +97,8 @@ ipcMain.handle("desktop:display-info", () => {
     }
   };
 });
+
+ipcMain.handle("desktop:device-id", () => readOrCreateDeviceId());
 
 function ensureInputHelper() {
   if (inputHelper && !inputHelper.killed) return { ok: true, child: inputHelper };

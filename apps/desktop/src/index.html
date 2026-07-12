@@ -18,6 +18,11 @@
 
       <section class="layout">
         <aside class="panel">
+          <section class="device-card">
+            <h2>This computer</h2>
+            <div id="deviceId" class="device-id">RC-----</div>
+          </section>
+
           <label>
             Signaling URL
             <input id="serverUrl" value="ws://localhost:4141" spellcheck="false" />
@@ -46,6 +51,7 @@
               <h2>Share this computer</h2>
               <div id="sources" class="sources"></div>
               <button id="shareBtn">Share this computer</button>
+              <p class="hint">Room code is temporary. Device ID stays fixed on this computer.</p>
               <div id="roomCode" class="room-code">------</div>
             </section>
 

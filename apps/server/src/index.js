@@ -71,10 +71,17 @@ wss.on("connection", (ws) => {
     if (message.type === "create-room") {
       leaveCurrentRoom(ws);
       const code = makeCode();
-      rooms.set(code, { host: ws, viewer: null, createdAt: Date.now() });
+      rooms.set(code, {
+        host: ws,
+        hostDeviceId: message.deviceId ?? null,
+        viewer: null,
+        viewerDeviceId: null,
+        createdAt: Date.now()
+      });
       ws.roomCode = code;
       ws.role = "host";
-      send(ws, { type: "room-created", code });
+      ws.deviceId = message.deviceId ?? null;
+      send(ws, { type: "room-created", code, deviceId: ws.deviceId });
       return;
     }
 
@@ -90,10 +97,17 @@ wss.on("connection", (ws) => {
         return;
       }
       room.viewer = ws;
+      room.viewerDeviceId = message.deviceId ?? null;
       ws.roomCode = message.code;
       ws.role = "viewer";
-      send(ws, { type: "room-joined", code: message.code });
-      send(room.host, { type: "peer-joined" });
+      ws.deviceId = message.deviceId ?? null;
+      send(ws, {
+        type: "room-joined",
+        code: message.code,
+        hostDeviceId: room.hostDeviceId,
+        viewerDeviceId: room.viewerDeviceId
+      });
+      send(room.host, { type: "peer-joined", viewerDeviceId: room.viewerDeviceId });
       return;
     }
 

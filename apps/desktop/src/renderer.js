@@ -1,6 +1,7 @@
 const $ = (id) => document.getElementById(id);
 
 const statusEl = $("status");
+const deviceIdEl = $("deviceId");
 const serverUrlEl = $("serverUrl");
 const turnUrlEl = $("turnUrl");
 const turnUserEl = $("turnUser");
@@ -25,6 +26,7 @@ let selectedSource = null;
 let role = null;
 let lastMoveSentAt = 0;
 let lastNativeInputError = "";
+let deviceId = "";
 
 function getIceServers() {
   const servers = [
@@ -292,7 +294,7 @@ async function shareThisComputer() {
     stage.classList.add("has-local");
 
     await connectSignaling();
-    sendSignal({ type: "create-room" });
+    sendSignal({ type: "create-room", deviceId });
   } catch (error) {
     closeEverything();
     setStatus(error.message);
@@ -312,7 +314,7 @@ async function connectToComputer() {
 
   try {
     await connectSignaling();
-    sendSignal({ type: "join-room", code });
+    sendSignal({ type: "join-room", code, deviceId });
   } catch (error) {
     closeEverything();
     setStatus(error.message);
@@ -450,4 +452,11 @@ window.addEventListener("focus", () => {
   if (!localStream) loadSources().catch((error) => setStatus(error.message));
 });
 attachViewerInput();
+window.remoteDesktop
+  .deviceId()
+  .then((id) => {
+    deviceId = id;
+    deviceIdEl.textContent = id;
+  })
+  .catch((error) => setStatus(error.message));
 loadSources().catch((error) => setStatus(error.message));
