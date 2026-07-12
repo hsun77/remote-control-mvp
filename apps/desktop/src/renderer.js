@@ -271,6 +271,10 @@ async function refreshSourcesForShare() {
 
 async function getDesktopStream(sourceId) {
   if (sourceId === "__picker__") {
+    if (!navigator.mediaDevices?.getDisplayMedia) {
+      throw new Error("Screen picker is unavailable in this Electron build.");
+    }
+
     return navigator.mediaDevices.getDisplayMedia({
       audio: false,
       video: {

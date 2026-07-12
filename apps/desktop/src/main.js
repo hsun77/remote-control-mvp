@@ -1,4 +1,4 @@
-import { app, BrowserWindow, desktopCapturer, ipcMain, screen } from "electron";
+import { app, BrowserWindow, desktopCapturer, ipcMain, screen, session } from "electron";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { spawn } from "node:child_process";
@@ -10,13 +10,6 @@ const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const projectRoot = path.resolve(__dirname, "../../..");
 let inputHelper = null;
 let lastInputHelperError = "";
-
-if (process.platform === "darwin") {
-  app.commandLine.appendSwitch(
-    "disable-features",
-    "ScreenCaptureKitPickerScreen,ScreenCaptureKitStreamPickerSonoma"
-  );
-}
 
 function readOrCreateDeviceId() {
   const file = path.join(app.getPath("userData"), "device.json");
@@ -48,6 +41,32 @@ function helperPath() {
   return path.join(projectRoot, "native-input-helper", "target", "release", exe);
 }
 
+function setupDisplayMedia() {
+  session.defaultSession.setPermissionCheckHandler((_webContents, permission) => {
+    return permission === "media";
+  });
+
+  session.defaultSession.setPermissionRequestHandler((_webContents, permission, callback) => {
+    callback(permission === "media");
+  });
+
+  session.defaultSession.setDisplayMediaRequestHandler(
+    async (_request, callback) => {
+      try {
+        const sources = await desktopCapturer.getSources({
+          types: ["screen"],
+          thumbnailSize: { width: 1, height: 1 }
+        });
+        callback({ video: sources[0] });
+      } catch (error) {
+        console.error(`display media request failed: ${error.message}`);
+        callback({});
+      }
+    },
+    { useSystemPicker: process.platform === "darwin" }
+  );
+}
+
 function createWindow() {
   const win = new BrowserWindow({
     width: 1180,
@@ -66,6 +85,7 @@ function createWindow() {
 }
 
 app.whenReady().then(() => {
+  setupDisplayMedia();
   createWindow();
 
   app.on("activate", () => {
@@ -78,6 +98,17 @@ app.on("window-all-closed", () => {
 });
 
 ipcMain.handle("desktop:list-sources", async () => {
+  if (process.platform === "darwin") {
+    return [
+      {
+        id: "__picker__",
+        name: "Choose screen",
+        displayId: "",
+        thumbnail: ""
+      }
+    ];
+  }
+
   try {
     const sources = await desktopCapturer.getSources({
       types: ["screen"],
