@@ -5,11 +5,12 @@
 ## 功能
 
 - WebRTC 加密桌面流传输
-- WebRTC DataChannel 发送鼠标和键盘事件
+- 通过信令备用通道和 WebRTC DataChannel 发送鼠标键盘事件
 - 6 位房间码配对
 - 每台电脑首次启动会生成固定设备 ID
 - 同一应用支持 host / viewer 两种模式
 - Rust 原生输入 helper，目标支持 macOS / Windows 输入注入
+- 支持 Mac / Windows 之间的 `Cmd` / `Ctrl` 快捷键自动映射
 - 信令服务支持开发用 `ws://`，也支持证书驱动的 `wss://`
 - 支持配置 TURN 中继，用于全球任意两地的公网远控
 
@@ -95,6 +96,15 @@ macOS 被控端需要系统授权：
 
 - 屏幕录制：允许 Electron 采集桌面
 - 辅助功能：允许 `Remote Control MVP` 注入鼠标键盘。新版 macOS 端优先使用内置 `mac-input.node` 插件，不再依赖常驻 `native-input-helper` 进程。
+
+## 快捷键映射
+
+桌面端默认开启 `Translate Cmd/Ctrl shortcuts between Mac and Windows`。
+
+- Mac 控制 Windows：`Cmd+C` / `Cmd+V` / `Cmd+A` 等会映射成 Windows 的 `Ctrl+C` / `Ctrl+V` / `Ctrl+A`
+- Windows 控制 Mac：`Ctrl+C` / `Ctrl+V` / `Ctrl+A` 等会映射成 Mac 的 `Cmd+C` / `Cmd+V` / `Cmd+A`
+
+如果想按物理按键原样发送，可以在左侧 Keyboard 区域关闭这个开关。
 
 ## macOS 官方屏幕共享备用方案
 

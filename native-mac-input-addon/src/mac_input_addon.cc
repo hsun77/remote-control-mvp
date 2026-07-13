@@ -42,6 +42,14 @@ int32_t get_int(napi_env env, napi_value object, const char* name, int32_t fallb
   return result;
 }
 
+bool get_bool(napi_env env, napi_value object, const char* name, bool fallback = false) {
+  napi_value value;
+  if (!get_named(env, object, name, &value)) return fallback;
+  bool result = fallback;
+  napi_get_value_bool(env, value, &result);
+  return result;
+}
+
 napi_value make_result(napi_env env, bool ok, const std::string& error = "") {
   napi_value object;
   napi_create_object(env, &object);
@@ -109,6 +117,20 @@ bool post_scroll(int32_t delta_y) {
   CGEventPost(kCGHIDEventTap, event);
   CFRelease(event);
   return true;
+}
+
+std::string translated_code_for_macos(napi_env env, napi_value event) {
+  const std::string code = get_string(env, event, "code");
+  const std::string source_platform = get_string(env, event, "sourcePlatform");
+  const bool translate = get_bool(env, event, "translateShortcuts", true);
+
+  if (!translate || source_platform == "darwin") return code;
+
+  if (code == "ControlLeft") return "MetaLeft";
+  if (code == "ControlRight") return "MetaRight";
+  if (code == "MetaLeft") return "ControlLeft";
+  if (code == "MetaRight") return "ControlRight";
+  return code;
 }
 
 uint16_t key_code_for(const std::string& code, const std::string& key) {
@@ -206,7 +228,7 @@ napi_value SendInput(napi_env env, napi_callback_info info) {
   } else if (type == "wheel") {
     ok = post_scroll(static_cast<int32_t>(std::round(get_number(env, argv[0], "deltaY", 0.0))));
   } else if (type == "keyDown" || type == "keyUp") {
-    ok = post_key(key_code_for(get_string(env, argv[0], "code"), get_string(env, argv[0], "key")),
+    ok = post_key(key_code_for(translated_code_for_macos(env, argv[0]), get_string(env, argv[0], "key")),
                   type == "keyDown");
   }
 

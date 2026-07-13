@@ -12,6 +12,7 @@ const shareBtn = $("shareBtn");
 const connectBtn = $("connectBtn");
 const disconnectBtn = $("disconnectBtn");
 const testInputBtn = $("testInputBtn");
+const translateShortcutsEl = $("translateShortcuts");
 const sourcesEl = $("sources");
 const remoteVideo = $("remoteVideo");
 const localPreview = $("localPreview");
@@ -34,6 +35,24 @@ let controlReceivedCount = 0;
 let controlAckCount = 0;
 let inputCaptured = false;
 let lastControlStatusAt = 0;
+const shortcutSettingKey = "remote-control.translate-shortcuts";
+
+function currentPlatform() {
+  const platform = navigator.platform.toLowerCase();
+  if (platform.includes("mac")) return "darwin";
+  if (platform.includes("win")) return "win32";
+  if (platform.includes("linux")) return "linux";
+  return platform || "unknown";
+}
+
+function loadShortcutSettings() {
+  const saved = window.localStorage.getItem(shortcutSettingKey);
+  translateShortcutsEl.checked = saved === null ? true : saved === "true";
+}
+
+function saveShortcutSettings() {
+  window.localStorage.setItem(shortcutSettingKey, String(translateShortcutsEl.checked));
+}
 
 function getIceServers() {
   const servers = [
@@ -385,7 +404,12 @@ function sendControl(event) {
   if (role !== "viewer") return;
   controlSeq += 1;
   controlSentCount += 1;
-  const payload = { ...event, seq: controlSeq };
+  const payload = {
+    ...event,
+    seq: controlSeq,
+    sourcePlatform: currentPlatform(),
+    translateShortcuts: translateShortcutsEl.checked
+  };
   if (ws?.readyState === WebSocket.OPEN) {
     sendSignal({ type: "control-event", event: payload });
   } else if (controlChannel?.readyState === "open") {
@@ -583,6 +607,7 @@ async function testLocalInput() {
 shareBtn.addEventListener("click", shareThisComputer);
 connectBtn.addEventListener("click", connectToComputer);
 testInputBtn.addEventListener("click", testLocalInput);
+translateShortcutsEl.addEventListener("change", saveShortcutSettings);
 disconnectBtn.addEventListener("click", () => {
   sendSignal({ type: "leave" });
   closeEverything();
@@ -593,6 +618,7 @@ window.addEventListener("focus", () => {
   if (!localStream) loadSources().catch((error) => setStatus(error.message));
 });
 attachViewerInput();
+loadShortcutSettings();
 window.remoteDesktop
   .deviceId()
   .then((id) => {

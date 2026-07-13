@@ -57,6 +57,12 @@ input {
   outline: none;
 }
 
+input[type="checkbox"] {
+  width: 18px;
+  min-height: 18px;
+  accent-color: #7dd3c7;
+}
+
 input:focus {
   border-color: #7dd3c7;
 }
@@ -129,16 +135,27 @@ h2 {
 
 .split section,
 .network,
-.device-card {
+.device-card,
+.settings-card {
   display: grid;
   gap: 12px;
 }
 
-.device-card {
+.device-card,
+.settings-card {
   padding: 12px;
   border: 1px solid #2a3642;
   border-radius: 7px;
   background: #18202a;
+}
+
+.check-row {
+  display: grid;
+  grid-template-columns: 18px 1fr;
+  align-items: start;
+  gap: 10px;
+  color: #d8e2eb;
+  line-height: 1.35;
 }
 
 .device-id {

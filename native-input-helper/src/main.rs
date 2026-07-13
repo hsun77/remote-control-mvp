@@ -65,6 +65,10 @@ struct InputEvent {
     delta_y: Option<f64>,
     key: Option<String>,
     code: Option<String>,
+    #[serde(rename = "sourcePlatform")]
+    source_platform: Option<String>,
+    #[serde(rename = "translateShortcuts")]
+    translate_shortcuts: Option<bool>,
     display: DisplayBounds,
 }
 
@@ -130,7 +134,8 @@ mod mac_input {
     }
 
     fn key_code_from_event(event: &InputEvent) -> Option<u16> {
-        match event.code.as_deref().unwrap_or("") {
+        let translated_code = translated_code_for_macos(event);
+        match translated_code.as_str() {
             "KeyA" => Some(0),
             "KeyS" => Some(1),
             "KeyD" => Some(2),
@@ -217,6 +222,23 @@ mod mac_input {
                 "ArrowUp" => Some(126),
                 _ => None,
             },
+        }
+    }
+
+    fn translated_code_for_macos(event: &InputEvent) -> String {
+        let code = event.code.as_deref().unwrap_or("").to_string();
+        if event.translate_shortcuts == Some(false)
+            || event.source_platform.as_deref() == Some("darwin")
+        {
+            return code;
+        }
+
+        match code.as_str() {
+            "ControlLeft" => "MetaLeft".to_string(),
+            "ControlRight" => "MetaRight".to_string(),
+            "MetaLeft" => "ControlLeft".to_string(),
+            "MetaRight" => "ControlRight".to_string(),
+            _ => code,
         }
     }
 
@@ -309,6 +331,23 @@ fn move_to_event_position(enigo: &mut Enigo, event: &InputEvent) {
 #[cfg(not(target_os = "macos"))]
 fn key_from_event(event: &InputEvent) -> Option<Key> {
     let key = event.key.as_deref().unwrap_or("");
+    let code = event.code.as_deref().unwrap_or("");
+
+    if event.translate_shortcuts != Some(false)
+        && event.source_platform.as_deref() == Some("darwin")
+    {
+        match code {
+            "MetaLeft" | "MetaRight" => return Some(Key::Control),
+            "ControlLeft" | "ControlRight" => return Some(Key::Meta),
+            _ => {}
+        }
+
+        match key {
+            "Meta" => return Some(Key::Control),
+            "Control" => return Some(Key::Meta),
+            _ => {}
+        }
+    }
 
     match key {
         "Alt" => Some(Key::Alt),
