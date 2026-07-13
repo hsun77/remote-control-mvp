@@ -147,7 +147,9 @@ function checkInputPermission() {
       resolve({
         ok: code === 0,
         stdout: stdout.trim(),
-        error: stderr.trim()
+        error: stderr.trim(),
+        code,
+        helperPath: bin
       });
     });
   });
@@ -195,7 +197,9 @@ ipcMain.handle("native-input:send", async (_event, inputEvent) => {
       const error = stderr.trim();
       resolve({
         ok: code === 0 && !error,
-        error
+        error,
+        code,
+        helperPath: bin
       });
     });
 

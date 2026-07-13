@@ -539,9 +539,14 @@ async function handleControlMessage(raw, transport = "datachannel") {
   }
   if (!result.ok && result.error && result.error !== lastNativeInputError) {
     lastNativeInputError = result.error;
-    setStatus(result.error);
-  } else if (message.type !== "mouseMove") {
-    setControlStatus(`Received ${message.type} from viewer`, true);
+    const details = result.code === undefined ? "" : ` (exit ${result.code})`;
+    setStatus(`${result.error}${details}`);
+  } else if (result.ok) {
+    lastNativeInputError = "";
+    setControlStatus(
+      `Mac input OK: received ${controlReceivedCount} events`,
+      message.type !== "mouseMove"
+    );
   }
 }
 
@@ -565,7 +570,8 @@ async function testLocalInput() {
       ...point
     });
     if (!result.ok) {
-      setStatus(result.error || "Local input helper failed");
+      const details = result.code === undefined ? "" : ` (exit ${result.code})`;
+      setStatus(`${result.error || "Local input helper failed"}${details}`);
       return;
     }
     await new Promise((resolve) => window.setTimeout(resolve, 120));
