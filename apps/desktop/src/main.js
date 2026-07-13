@@ -57,13 +57,14 @@ function setupDisplayMedia() {
           types: ["screen"],
           thumbnailSize: { width: 1, height: 1 }
         });
-        callback({ video: sources[0] });
+        const screenSource = sources.find((source) => source.id.startsWith("screen:")) ?? sources[0];
+        callback({ video: screenSource });
       } catch (error) {
         console.error(`display media request failed: ${error.message}`);
         callback({});
       }
     },
-    { useSystemPicker: process.platform === "darwin" }
+    { useSystemPicker: false }
   );
 }
 
@@ -102,7 +103,7 @@ ipcMain.handle("desktop:list-sources", async () => {
     return [
       {
         id: "__picker__",
-        name: "Choose screen",
+        name: "Entire desktop",
         displayId: "",
         thumbnail: ""
       }
