@@ -1,4 +1,4 @@
-import { app, BrowserWindow, desktopCapturer, ipcMain, screen, session } from "electron";
+import { app, BrowserWindow, desktopCapturer, ipcMain, screen, session, systemPreferences } from "electron";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { spawn } from "node:child_process";
@@ -148,6 +148,19 @@ ipcMain.handle("desktop:display-info", () => {
 });
 
 ipcMain.handle("desktop:device-id", () => readOrCreateDeviceId());
+
+ipcMain.handle("desktop:screen-permission", () => {
+  if (process.platform !== "darwin") {
+    return { ok: true, status: "granted" };
+  }
+
+  try {
+    const status = systemPreferences.getMediaAccessStatus("screen");
+    return { ok: status === "granted", status };
+  } catch (error) {
+    return { ok: false, status: "unknown", error: error.message };
+  }
+});
 
 function checkInputPermission() {
   const addon = loadMacInputAddon();
