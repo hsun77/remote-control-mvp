@@ -252,33 +252,18 @@ async function loadSources() {
 
 async function refreshSourcesForShare() {
   if (selectedSource) return true;
-
-  setStatus("Refreshing screen sources");
-  try {
-    await loadSources();
-  } catch (error) {
-    setStatus(error.message);
-    return false;
-  }
-
-  if (!selectedSource) {
-    setStatus("No screen source available. Enable Screen Recording, then reopen this app or click Share again.");
-    return false;
-  }
-
-  return true;
+  await loadSources();
+  return Boolean(selectedSource);
 }
 
-async function getDesktopStream(sourceId) {
-  return navigator.mediaDevices.getUserMedia({
+async function getDesktopStream() {
+  if (!navigator.mediaDevices?.getDisplayMedia) {
+    throw new Error("Desktop sharing is not available in this runtime.");
+  }
+
+  return navigator.mediaDevices.getDisplayMedia({
     audio: false,
-    video: {
-      mandatory: {
-        chromeMediaSource: "desktop",
-        chromeMediaSourceId: sourceId,
-        maxFrameRate: 30
-      }
-    }
+    video: true
   });
 }
 
@@ -292,7 +277,7 @@ async function shareThisComputer() {
   setStatus("Opening screen capture");
 
   try {
-    localStream = await getDesktopStream(selectedSource.id);
+    localStream = await getDesktopStream();
     localPreview.srcObject = localStream;
     stage.classList.add("has-local");
 

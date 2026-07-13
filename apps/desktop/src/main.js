@@ -11,13 +11,6 @@ const projectRoot = path.resolve(__dirname, "../../..");
 let inputHelper = null;
 let lastInputHelperError = "";
 
-if (process.platform === "darwin") {
-  app.commandLine.appendSwitch(
-    "disable-features",
-    "ScreenCaptureKitPickerScreen,ScreenCaptureKitStreamPickerSonoma"
-  );
-}
-
 function readOrCreateDeviceId() {
   const file = path.join(app.getPath("userData"), "device.json");
   try {
@@ -71,7 +64,7 @@ function setupDisplayMedia() {
         callback({});
       }
     },
-    { useSystemPicker: false }
+    { useSystemPicker: process.platform === "darwin" }
   );
 }
 
@@ -106,24 +99,14 @@ app.on("window-all-closed", () => {
 });
 
 ipcMain.handle("desktop:list-sources", async () => {
-  try {
-    const sources = await desktopCapturer.getSources({
-      types: ["screen"],
-      thumbnailSize: { width: 320, height: 180 }
-    });
-
-    return sources
-      .filter((source) => source.id.startsWith("screen:"))
-      .map((source) => ({
-        id: source.id,
-        name: process.platform === "darwin" ? "Entire desktop" : source.name,
-        displayId: source.display_id,
-        thumbnail: source.thumbnail.toDataURL()
-      }));
-  } catch (error) {
-    console.error(`desktop source list failed: ${error.message}`);
-    return [];
-  }
+  return [
+    {
+      id: "__display_media__",
+      name: "Entire desktop",
+      displayId: "",
+      thumbnail: ""
+    }
+  ];
 });
 
 ipcMain.handle("desktop:display-info", () => {
