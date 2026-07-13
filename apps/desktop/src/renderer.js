@@ -27,6 +27,12 @@ let role = null;
 let lastMoveSentAt = 0;
 let lastNativeInputError = "";
 let deviceId = "";
+let controlSeq = 0;
+let controlSentCount = 0;
+let controlReceivedCount = 0;
+let controlAckCount = 0;
+let inputCaptured = false;
+let lastControlStatusAt = 0;
 
 function getIceServers() {
   const servers = [
@@ -146,6 +152,25 @@ function createPeerConnection() {
   return peer;
 }
 
+function setControlStatus(text, immediate = false) {
+  const now = performance.now();
+  if (!immediate && now - lastControlStatusAt < 500) return;
+  lastControlStatusAt = now;
+  setStatus(text);
+}
+
+function wireControlChannel(channel, mode) {
+  controlChannel = channel;
+  controlChannel.onopen = () => {
+    setControlStatus("Control channel encrypted and ready", true);
+    if (mode === "viewer") {
+      remoteVideo.focus();
+    }
+  };
+  controlChannel.onmessage = (event) => handleControlMessage(event.data);
+  controlChannel.onclose = () => setControlStatus("Control channel closed", true);
+}
+
 async function startHostPeer() {
   pc = createPeerConnection();
 
@@ -153,8 +178,7 @@ async function startHostPeer() {
     pc.addTrack(track, localStream);
   }
 
-  controlChannel = pc.createDataChannel("control", { ordered: false, maxRetransmits: 0 });
-  controlChannel.onmessage = (event) => handleControlMessage(event.data);
+  wireControlChannel(pc.createDataChannel("control", { ordered: false, maxRetransmits: 0 }), "host");
 
   const offer = await pc.createOffer({
     offerToReceiveVideo: false,
@@ -185,8 +209,7 @@ async function handleSignal(message) {
   if (message.type === "offer") {
     pc = createPeerConnection();
     pc.ondatachannel = (event) => {
-      controlChannel = event.channel;
-      controlChannel.onopen = () => setStatus("Control channel encrypted and ready");
+      wireControlChannel(event.channel, "viewer");
     };
 
     await pc.setRemoteDescription(message.offer);
@@ -340,39 +363,65 @@ function normalizeVideoPoint(event) {
 
 function sendControl(event) {
   if (role !== "viewer" || !controlChannel || controlChannel.readyState !== "open") return;
-  controlChannel.send(JSON.stringify(event));
+  controlSeq += 1;
+  controlSentCount += 1;
+  controlChannel.send(JSON.stringify({ ...event, seq: controlSeq }));
+  if (event.type !== "mouseMove") {
+    setControlStatus(`Sent ${event.type} to remote Mac`, true);
+  }
 }
 
 function attachViewerInput() {
-  remoteVideo.addEventListener("mousemove", (event) => {
-    const now = performance.now();
-    if (now - lastMoveSentAt < 16) return;
-    lastMoveSentAt = now;
-    sendControl({ type: "mouseMove", ...normalizeVideoPoint(event) });
-  });
-
-  remoteVideo.addEventListener("mousedown", (event) => {
+  stage.addEventListener("pointerdown", (event) => {
+    if (role !== "viewer") return;
+    inputCaptured = true;
     remoteVideo.focus();
+    stage.setPointerCapture?.(event.pointerId);
     event.preventDefault();
     sendControl({
       type: "mouseDown",
       button: event.button,
+      buttons: event.buttons,
       ...normalizeVideoPoint(event)
     });
   });
 
-  remoteVideo.addEventListener("mouseup", (event) => {
-    event.preventDefault();
+  stage.addEventListener("pointermove", (event) => {
+    if (role !== "viewer") return;
+    const now = performance.now();
+    if (now - lastMoveSentAt < 16) return;
+    lastMoveSentAt = now;
+    sendControl({
+      type: "mouseMove",
+      buttons: event.buttons,
+      ...normalizeVideoPoint(event)
+    });
+  });
+
+  stage.addEventListener("pointerup", (event) => {
+    if (role !== "viewer") return;
+    inputCaptured = true;
+    stage.releasePointerCapture?.(event.pointerId);
     sendControl({
       type: "mouseUp",
       button: event.button,
+      buttons: event.buttons,
       ...normalizeVideoPoint(event)
     });
+    event.preventDefault();
   });
 
-  remoteVideo.addEventListener(
+  stage.addEventListener("contextmenu", (event) => {
+    if (role !== "viewer") return;
+    event.preventDefault();
+  });
+
+  stage.addEventListener(
     "wheel",
     (event) => {
+      if (role !== "viewer") return;
+      inputCaptured = true;
+      remoteVideo.focus();
       event.preventDefault();
       sendControl({
         type: "wheel",
@@ -384,8 +433,9 @@ function attachViewerInput() {
     { passive: false }
   );
 
-  remoteVideo.addEventListener("keydown", (event) => {
-    if (role !== "viewer") return;
+  window.addEventListener("keydown", (event) => {
+    if (role !== "viewer" || !inputCaptured) return;
+    if (["INPUT", "TEXTAREA", "SELECT"].includes(document.activeElement?.tagName)) return;
     event.preventDefault();
     sendControl({
       type: "keyDown",
@@ -398,8 +448,9 @@ function attachViewerInput() {
     });
   });
 
-  remoteVideo.addEventListener("keyup", (event) => {
-    if (role !== "viewer") return;
+  window.addEventListener("keyup", (event) => {
+    if (role !== "viewer" || !inputCaptured) return;
+    if (["INPUT", "TEXTAREA", "SELECT"].includes(document.activeElement?.tagName)) return;
     event.preventDefault();
     sendControl({
       type: "keyUp",
@@ -421,10 +472,38 @@ async function handleControlMessage(raw) {
     return;
   }
 
+  if (message.type === "controlAck") {
+    controlAckCount += 1;
+    if (!message.ok) {
+      setControlStatus(message.error || "Remote input injection failed", true);
+      return;
+    }
+    setControlStatus(
+      `Remote control active: sent ${controlSentCount}, Mac received ${message.received}`,
+      message.eventType !== "mouseMove"
+    );
+    return;
+  }
+
+  controlReceivedCount += 1;
   const result = await window.remoteDesktop.sendNativeInput(message);
+  if (controlChannel?.readyState === "open") {
+    controlChannel.send(
+      JSON.stringify({
+        type: "controlAck",
+        ok: result.ok,
+        error: result.error || "",
+        eventType: message.type,
+        seq: message.seq,
+        received: controlReceivedCount
+      })
+    );
+  }
   if (!result.ok && result.error && result.error !== lastNativeInputError) {
     lastNativeInputError = result.error;
     setStatus(result.error);
+  } else if (message.type !== "mouseMove") {
+    setControlStatus(`Received ${message.type} from viewer`, true);
   }
 }
 

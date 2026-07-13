@@ -60,6 +60,7 @@ struct InputEvent {
     x: Option<f64>,
     y: Option<f64>,
     button: Option<u8>,
+    buttons: Option<u16>,
     #[serde(rename = "deltaY")]
     delta_y: Option<f64>,
     key: Option<String>,
@@ -237,7 +238,12 @@ mod mac_input {
         match event.kind.as_str() {
             "mouseMove" => {
                 if let Some(point) = event_position(&event.display, event.x, event.y) {
-                    post_mouse(CGEventType::MouseMoved, point, CGMouseButton::Left);
+                    let event_type = if event.buttons.unwrap_or(0) & 1 == 1 {
+                        CGEventType::LeftMouseDragged
+                    } else {
+                        CGEventType::MouseMoved
+                    };
+                    post_mouse(event_type, point, CGMouseButton::Left);
                 }
             }
             "mouseDown" => {

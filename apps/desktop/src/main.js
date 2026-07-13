@@ -198,6 +198,14 @@ ipcMain.handle("native-input:send", async (_event, inputEvent) => {
     }
   };
 
-  helper.child.stdin.write(`${JSON.stringify(payload)}\n`);
-  return { ok: true, error: lastInputHelperError };
+  return new Promise((resolve) => {
+    helper.child.stdin.write(`${JSON.stringify(payload)}\n`, (error) => {
+      if (error) {
+        resolve({ ok: false, error: error.message });
+        return;
+      }
+
+      resolve({ ok: true, error: lastInputHelperError });
+    });
+  });
 });
