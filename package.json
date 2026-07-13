@@ -8,7 +8,7 @@
     "dev:server": "npm --workspace @remote-control/server run dev",
     "dev:desktop": "npm --workspace @remote-control/desktop run dev",
     "build:helper": "cargo build --manifest-path native-input-helper/Cargo.toml --release",
-    "package:mac": "npm run build:helper && electron-packager apps/desktop \"Remote Control MVP\" --platform=darwin --arch=x64 --out=dist --overwrite --asar --prune=false --extra-resource=native-input-helper/target/release/native-input-helper && codesign --force --sign - \"dist/Remote Control MVP-darwin-x64/Remote Control MVP.app/Contents/Resources/native-input-helper\" && codesign --force --deep --sign - \"dist/Remote Control MVP-darwin-x64/Remote Control MVP.app\"",
+    "package:mac": "npm run build:helper && electron-packager apps/desktop \"Remote Control MVP\" --platform=darwin --arch=x64 --out=dist --overwrite --asar --prune=false --extra-resource=native-input-helper/target/release/native-input-helper && codesign --force --sign \"${CODESIGN_IDENTITY:-Remote Control MVP Local Code Signing}\" --identifier com.electron.remote-control-mvp.native-input-helper \"dist/Remote Control MVP-darwin-x64/Remote Control MVP.app/Contents/Resources/native-input-helper\" && codesign --force --deep --sign \"${CODESIGN_IDENTITY:-Remote Control MVP Local Code Signing}\" \"dist/Remote Control MVP-darwin-x64/Remote Control MVP.app\"",
     "dev": "npm-run-all --parallel dev:server dev:desktop"
   },
   "workspaces": [
