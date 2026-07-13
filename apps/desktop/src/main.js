@@ -8,8 +8,6 @@ import crypto from "node:crypto";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const projectRoot = path.resolve(__dirname, "../../..");
-let inputHelper = null;
-let lastInputHelperError = "";
 
 function readOrCreateDeviceId() {
   const file = path.join(app.getPath("userData"), "device.json");
@@ -125,40 +123,6 @@ ipcMain.handle("desktop:display-info", () => {
 
 ipcMain.handle("desktop:device-id", () => readOrCreateDeviceId());
 
-function ensureInputHelper() {
-  if (inputHelper && !inputHelper.killed) {
-    if (!lastInputHelperError.includes("Accessibility permission is required")) {
-      return { ok: true, child: inputHelper };
-    }
-
-    inputHelper.kill();
-    inputHelper = null;
-    lastInputHelperError = "";
-  }
-
-  const bin = helperPath();
-  if (!fs.existsSync(bin)) {
-    return {
-      ok: false,
-      error: `Native input helper not built. Run: npm run build:helper`
-    };
-  }
-
-  inputHelper = spawn(bin, [], { stdio: ["pipe", "ignore", "pipe"] });
-  lastInputHelperError = "";
-
-  inputHelper.stderr.on("data", (chunk) => {
-    lastInputHelperError = chunk.toString().trim();
-    console.error(lastInputHelperError);
-  });
-
-  inputHelper.on("close", () => {
-    inputHelper = null;
-  });
-
-  return { ok: true, child: inputHelper };
-}
-
 function checkInputPermission() {
   const bin = helperPath();
   if (!fs.existsSync(bin)) {
@@ -194,10 +158,6 @@ ipcMain.handle("native-input:status", () => checkInputPermission());
 ipcMain.handle("native-input:send", async (_event, inputEvent) => {
   const permission = await checkInputPermission();
   if (!permission.ok) return permission;
-  lastInputHelperError = "";
-
-  const helper = ensureInputHelper();
-  if (!helper.ok) return helper;
 
   const display = screen.getPrimaryDisplay();
   const payload = {
@@ -211,13 +171,38 @@ ipcMain.handle("native-input:send", async (_event, inputEvent) => {
   };
 
   return new Promise((resolve) => {
-    helper.child.stdin.write(`${JSON.stringify(payload)}\n`, (error) => {
+    const bin = helperPath();
+    if (!fs.existsSync(bin)) {
+      resolve({
+        ok: false,
+        error: `Native input helper not built. Run: npm run build:helper`
+      });
+      return;
+    }
+
+    const child = spawn(bin, [], { stdio: ["pipe", "ignore", "pipe"] });
+    let stderr = "";
+
+    child.stderr.on("data", (chunk) => {
+      stderr += chunk.toString();
+    });
+
+    child.on("error", (error) => {
+      resolve({ ok: false, error: error.message });
+    });
+
+    child.on("close", (code) => {
+      const error = stderr.trim();
+      resolve({
+        ok: code === 0 && !error,
+        error
+      });
+    });
+
+    child.stdin.end(`${JSON.stringify(payload)}\n`, (error) => {
       if (error) {
         resolve({ ok: false, error: error.message });
-        return;
       }
-
-      resolve({ ok: true, error: lastInputHelperError });
     });
   });
 });

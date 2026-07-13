@@ -415,6 +415,7 @@ fn main() {
         eprintln!(
             "macOS Accessibility permission is required. Enable Remote Control MVP and native-input-helper in System Settings > Privacy & Security > Accessibility, then restart Remote Control MVP."
         );
+        std::process::exit(2);
     }
 
     let stdin = io::stdin();
