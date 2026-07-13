@@ -360,16 +360,18 @@ async function getDesktopStream() {
   });
 }
 
-async function shareThisComputer() {
+async function shareThisComputer(options = {}) {
   if (role === "host" && localStream) return;
   if (!(await refreshSourcesForShare())) {
     return;
   }
 
+  await window.remoteDesktop.captureMode(options.unattended ? "direct" : "picker");
+
   saveNetworkSettings();
   role = "host";
   setConnectedState(true);
-  setStatus("Opening screen capture");
+  setStatus(options.unattended ? "Starting unattended sharing" : "Opening screen picker");
 
   try {
     localStream = await getDesktopStream();
@@ -421,7 +423,7 @@ async function maybeAutoShare() {
   autoShareStarted = true;
   window.setTimeout(() => {
     if (!role && autoShareEl.checked) {
-      shareThisComputer();
+      shareThisComputer({ unattended: true });
     }
   }, 700);
 }

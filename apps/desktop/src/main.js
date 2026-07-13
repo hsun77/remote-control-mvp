@@ -12,6 +12,7 @@ const require = createRequire(import.meta.url);
 const projectRoot = path.resolve(__dirname, "../../..");
 let macInputAddon = null;
 let macInputAddonError = "";
+let useSystemScreenPicker = true;
 
 function readOrCreateDeviceId() {
   const file = path.join(app.getPath("userData"), "device.json");
@@ -88,7 +89,7 @@ function setupDisplayMedia() {
         callback({});
       }
     },
-    { useSystemPicker: false }
+    { useSystemPicker: useSystemScreenPicker }
   );
 }
 
@@ -148,6 +149,12 @@ ipcMain.handle("desktop:display-info", () => {
 });
 
 ipcMain.handle("desktop:device-id", () => readOrCreateDeviceId());
+
+ipcMain.handle("desktop:capture-mode", (_event, mode) => {
+  useSystemScreenPicker = mode !== "direct";
+  setupDisplayMedia();
+  return { ok: true, mode: useSystemScreenPicker ? "picker" : "direct" };
+});
 
 ipcMain.handle("desktop:screen-permission", () => {
   if (process.platform !== "darwin") {
