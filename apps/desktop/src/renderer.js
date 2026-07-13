@@ -277,9 +277,7 @@ async function getDesktopStream(sourceId) {
 
     return navigator.mediaDevices.getDisplayMedia({
       audio: false,
-      video: {
-        frameRate: 30
-      }
+      video: true
     });
   }
 
