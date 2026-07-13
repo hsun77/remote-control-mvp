@@ -94,7 +94,7 @@ TLS_KEY_FILE=/path/to/key.pem TLS_CERT_FILE=/path/to/cert.pem npm run dev:server
 macOS 被控端需要系统授权：
 
 - 屏幕录制：允许 Electron 采集桌面
-- 辅助功能：允许 `native-input-helper` 注入鼠标键盘
+- 辅助功能：允许 `Remote Control MVP` 注入鼠标键盘。新版 macOS 端优先使用内置 `mac-input.node` 插件，不再依赖常驻 `native-input-helper` 进程。
 
 ## macOS 官方屏幕共享备用方案
 

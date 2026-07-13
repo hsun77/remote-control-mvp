@@ -2,12 +2,16 @@ import { app, BrowserWindow, desktopCapturer, ipcMain, screen, session } from "e
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { spawn } from "node:child_process";
+import { createRequire } from "node:module";
 import os from "node:os";
 import fs from "node:fs";
 import crypto from "node:crypto";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
+const require = createRequire(import.meta.url);
 const projectRoot = path.resolve(__dirname, "../../..");
+let macInputAddon = null;
+let macInputAddonError = "";
 
 function readOrCreateDeviceId() {
   const file = path.join(app.getPath("userData"), "device.json");
@@ -37,6 +41,28 @@ function helperPath() {
     return path.join(process.resourcesPath, exe);
   }
   return path.join(projectRoot, "native-input-helper", "target", "release", exe);
+}
+
+function macInputAddonPath() {
+  if (app.isPackaged) {
+    return path.join(process.resourcesPath, "mac-input.node");
+  }
+  return path.join(projectRoot, "native-mac-input-addon", "build", "Release", "mac-input.node");
+}
+
+function loadMacInputAddon() {
+  if (process.platform !== "darwin") return null;
+  if (macInputAddon) return macInputAddon;
+
+  const addonPath = macInputAddonPath();
+  try {
+    macInputAddon = require(addonPath);
+    macInputAddonError = "";
+    return macInputAddon;
+  } catch (error) {
+    macInputAddonError = `Could not load mac input addon at ${addonPath}: ${error.message}`;
+    return null;
+  }
 }
 
 function setupDisplayMedia() {
@@ -124,6 +150,14 @@ ipcMain.handle("desktop:display-info", () => {
 ipcMain.handle("desktop:device-id", () => readOrCreateDeviceId());
 
 function checkInputPermission() {
+  const addon = loadMacInputAddon();
+  if (addon) {
+    return Promise.resolve({ ...addon.isTrusted(), helperPath: macInputAddonPath(), engine: "mac-input-addon" });
+  }
+  if (process.platform === "darwin" && macInputAddonError) {
+    return Promise.resolve({ ok: false, error: macInputAddonError, helperPath: macInputAddonPath(), engine: "mac-input-addon" });
+  }
+
   const bin = helperPath();
   if (!fs.existsSync(bin)) {
     return Promise.resolve({
@@ -171,6 +205,11 @@ ipcMain.handle("native-input:send", async (_event, inputEvent) => {
       height: display.bounds.height
     }
   };
+
+  const addon = loadMacInputAddon();
+  if (addon) {
+    return { ...addon.sendInput(payload), helperPath: macInputAddonPath(), engine: "mac-input-addon" };
+  }
 
   return new Promise((resolve) => {
     const bin = helperPath();
