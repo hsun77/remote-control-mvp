@@ -11,6 +11,7 @@ const joinCodeEl = $("joinCode");
 const shareBtn = $("shareBtn");
 const connectBtn = $("connectBtn");
 const disconnectBtn = $("disconnectBtn");
+const testInputBtn = $("testInputBtn");
 const sourcesEl = $("sources");
 const remoteVideo = $("remoteVideo");
 const localPreview = $("localPreview");
@@ -168,17 +169,28 @@ function wireControlChannel(channel, mode) {
     }
   };
   controlChannel.onmessage = (event) => handleControlMessage(event.data);
+  controlChannel.onerror = () => setControlStatus("Control channel error", true);
   controlChannel.onclose = () => setControlStatus("Control channel closed", true);
+}
+
+function createControlChannel(mode) {
+  wireControlChannel(
+    pc.createDataChannel("control", {
+      negotiated: true,
+      id: 0,
+      ordered: true
+    }),
+    mode
+  );
 }
 
 async function startHostPeer() {
   pc = createPeerConnection();
+  createControlChannel("host");
 
   for (const track of localStream.getTracks()) {
     pc.addTrack(track, localStream);
   }
-
-  wireControlChannel(pc.createDataChannel("control", { ordered: false, maxRetransmits: 0 }), "host");
 
   const offer = await pc.createOffer({
     offerToReceiveVideo: false,
@@ -208,9 +220,7 @@ async function handleSignal(message) {
 
   if (message.type === "offer") {
     pc = createPeerConnection();
-    pc.ondatachannel = (event) => {
-      wireControlChannel(event.channel, "viewer");
-    };
+    createControlChannel("viewer");
 
     await pc.setRemoteDescription(message.offer);
     const answer = await pc.createAnswer();
@@ -362,7 +372,11 @@ function normalizeVideoPoint(event) {
 }
 
 function sendControl(event) {
-  if (role !== "viewer" || !controlChannel || controlChannel.readyState !== "open") return;
+  if (role !== "viewer") return;
+  if (!controlChannel || controlChannel.readyState !== "open") {
+    setControlStatus(`Control channel not ready: ${controlChannel?.readyState || "missing"}`, true);
+    return;
+  }
   controlSeq += 1;
   controlSentCount += 1;
   controlChannel.send(JSON.stringify({ ...event, seq: controlSeq }));
@@ -376,7 +390,11 @@ function attachViewerInput() {
     if (role !== "viewer") return;
     inputCaptured = true;
     remoteVideo.focus();
-    stage.setPointerCapture?.(event.pointerId);
+    try {
+      stage.setPointerCapture?.(event.pointerId);
+    } catch {
+      // Pointer capture is a convenience, not required for remote control.
+    }
     event.preventDefault();
     sendControl({
       type: "mouseDown",
@@ -401,7 +419,11 @@ function attachViewerInput() {
   stage.addEventListener("pointerup", (event) => {
     if (role !== "viewer") return;
     inputCaptured = true;
-    stage.releasePointerCapture?.(event.pointerId);
+    try {
+      stage.releasePointerCapture?.(event.pointerId);
+    } catch {
+      // The pointer may already be released by the OS.
+    }
     sendControl({
       type: "mouseUp",
       button: event.button,
@@ -507,8 +529,38 @@ async function handleControlMessage(raw) {
   }
 }
 
+async function testLocalInput() {
+  setStatus("Testing local input helper");
+  const status = await window.remoteDesktop.nativeInputStatus();
+  if (!status.ok) {
+    setStatus(status.error || "Local input helper is not allowed");
+    return;
+  }
+
+  const points = [
+    { x: 0.48, y: 0.5 },
+    { x: 0.52, y: 0.5 },
+    { x: 0.5, y: 0.5 }
+  ];
+
+  for (const point of points) {
+    const result = await window.remoteDesktop.sendNativeInput({
+      type: "mouseMove",
+      ...point
+    });
+    if (!result.ok) {
+      setStatus(result.error || "Local input helper failed");
+      return;
+    }
+    await new Promise((resolve) => window.setTimeout(resolve, 120));
+  }
+
+  setStatus("Local input helper OK");
+}
+
 shareBtn.addEventListener("click", shareThisComputer);
 connectBtn.addEventListener("click", connectToComputer);
+testInputBtn.addEventListener("click", testLocalInput);
 disconnectBtn.addEventListener("click", () => {
   sendSignal({ type: "leave" });
   closeEverything();
