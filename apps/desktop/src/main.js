@@ -126,7 +126,15 @@ ipcMain.handle("desktop:display-info", () => {
 ipcMain.handle("desktop:device-id", () => readOrCreateDeviceId());
 
 function ensureInputHelper() {
-  if (inputHelper && !inputHelper.killed) return { ok: true, child: inputHelper };
+  if (inputHelper && !inputHelper.killed) {
+    if (!lastInputHelperError.includes("Accessibility permission is required")) {
+      return { ok: true, child: inputHelper };
+    }
+
+    inputHelper.kill();
+    inputHelper = null;
+    lastInputHelperError = "";
+  }
 
   const bin = helperPath();
   if (!fs.existsSync(bin)) {
@@ -184,6 +192,10 @@ function checkInputPermission() {
 ipcMain.handle("native-input:status", () => checkInputPermission());
 
 ipcMain.handle("native-input:send", async (_event, inputEvent) => {
+  const permission = await checkInputPermission();
+  if (!permission.ok) return permission;
+  lastInputHelperError = "";
+
   const helper = ensureInputHelper();
   if (!helper.ok) return helper;
 
