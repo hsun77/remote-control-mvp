@@ -88,7 +88,7 @@ function setupDisplayMedia() {
         callback({});
       }
     },
-    { useSystemPicker: process.platform === "darwin" }
+    { useSystemPicker: false }
   );
 }
 

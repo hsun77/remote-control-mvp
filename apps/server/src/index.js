@@ -28,6 +28,22 @@ function getPeer(room, ws) {
   return ws === room.host ? room.viewer : room.host;
 }
 
+function findRoomByCodeOrDevice(identifier) {
+  const value = String(identifier ?? "").trim().toUpperCase();
+  if (!value) return null;
+
+  const room = rooms.get(value);
+  if (room) return { code: value, room };
+
+  for (const [code, candidate] of rooms.entries()) {
+    if (String(candidate.hostDeviceId ?? "").toUpperCase() === value) {
+      return { code, room: candidate };
+    }
+  }
+
+  return null;
+}
+
 function leaveCurrentRoom(ws) {
   if (!ws.roomCode) return;
   const room = rooms.get(ws.roomCode);
@@ -87,23 +103,24 @@ wss.on("connection", (ws) => {
 
     if (message.type === "join-room") {
       leaveCurrentRoom(ws);
-      const room = rooms.get(String(message.code ?? ""));
-      if (!room || !room.host) {
-        send(ws, { type: "error", error: "Room not found" });
+      const match = findRoomByCodeOrDevice(message.code);
+      if (!match || !match.room.host) {
+        send(ws, { type: "error", error: "Room or device not found" });
         return;
       }
+      const { code, room } = match;
       if (room.viewer) {
         send(ws, { type: "error", error: "Room already has a viewer" });
         return;
       }
       room.viewer = ws;
       room.viewerDeviceId = message.deviceId ?? null;
-      ws.roomCode = message.code;
+      ws.roomCode = code;
       ws.role = "viewer";
       ws.deviceId = message.deviceId ?? null;
       send(ws, {
         type: "room-joined",
-        code: message.code,
+        code,
         hostDeviceId: room.hostDeviceId,
         viewerDeviceId: room.viewerDeviceId
       });

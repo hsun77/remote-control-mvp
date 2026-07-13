@@ -13,6 +13,7 @@ const connectBtn = $("connectBtn");
 const disconnectBtn = $("disconnectBtn");
 const testInputBtn = $("testInputBtn");
 const translateShortcutsEl = $("translateShortcuts");
+const autoShareEl = $("autoShare");
 const sourcesEl = $("sources");
 const remoteVideo = $("remoteVideo");
 const localPreview = $("localPreview");
@@ -35,7 +36,15 @@ let controlReceivedCount = 0;
 let controlAckCount = 0;
 let inputCaptured = false;
 let lastControlStatusAt = 0;
+let autoShareStarted = false;
 const shortcutSettingKey = "remote-control.translate-shortcuts";
+const autoShareSettingKey = "remote-control.auto-share";
+const savedFieldKeys = {
+  serverUrl: "remote-control.server-url",
+  turnUrl: "remote-control.turn-url",
+  turnUser: "remote-control.turn-user",
+  turnPassword: "remote-control.turn-password"
+};
 
 function currentPlatform() {
   const platform = navigator.platform.toLowerCase();
@@ -52,6 +61,28 @@ function loadShortcutSettings() {
 
 function saveShortcutSettings() {
   window.localStorage.setItem(shortcutSettingKey, String(translateShortcutsEl.checked));
+}
+
+function loadSavedSettings() {
+  loadShortcutSettings();
+  autoShareEl.checked = window.localStorage.getItem(autoShareSettingKey) !== "false";
+
+  const fields = { serverUrl: serverUrlEl, turnUrl: turnUrlEl, turnUser: turnUserEl, turnPassword: turnPasswordEl };
+  for (const [name, element] of Object.entries(fields)) {
+    const saved = window.localStorage.getItem(savedFieldKeys[name]);
+    if (saved !== null) element.value = saved;
+  }
+}
+
+function saveNetworkSettings() {
+  window.localStorage.setItem(savedFieldKeys.serverUrl, serverUrlEl.value.trim());
+  window.localStorage.setItem(savedFieldKeys.turnUrl, turnUrlEl.value.trim());
+  window.localStorage.setItem(savedFieldKeys.turnUser, turnUserEl.value.trim());
+  window.localStorage.setItem(savedFieldKeys.turnPassword, turnPasswordEl.value);
+}
+
+function saveAutoShareSetting() {
+  window.localStorage.setItem(autoShareSettingKey, String(autoShareEl.checked));
 }
 
 function getIceServers() {
@@ -79,8 +110,8 @@ function setStatus(text) {
 }
 
 function setConnectedState(connected) {
-  shareBtn.disabled = connected;
-  connectBtn.disabled = connected;
+  shareBtn.disabled = connected && role === "host";
+  connectBtn.disabled = connected && role === "viewer";
   disconnectBtn.disabled = !connected;
 }
 
@@ -330,10 +361,12 @@ async function getDesktopStream() {
 }
 
 async function shareThisComputer() {
+  if (role === "host" && localStream) return;
   if (!(await refreshSourcesForShare())) {
     return;
   }
 
+  saveNetworkSettings();
   role = "host";
   setConnectedState(true);
   setStatus("Opening screen capture");
@@ -352,12 +385,17 @@ async function shareThisComputer() {
 }
 
 async function connectToComputer() {
-  const code = joinCodeEl.value.trim();
-  if (!/^\d{6}$/.test(code)) {
-    setStatus("Enter a 6 digit room code");
+  const code = joinCodeEl.value.trim().toUpperCase();
+  if (!/^(\d{6}|RC-[A-Z0-9]{4}-[A-Z0-9]{4})$/.test(code)) {
+    setStatus("Enter a 6 digit room code or device ID");
     return;
   }
 
+  if (role === "host") {
+    closeEverything();
+  }
+
+  saveNetworkSettings();
   role = "viewer";
   setConnectedState(true);
   setStatus("Connecting to signaling server");
@@ -369,6 +407,16 @@ async function connectToComputer() {
     closeEverything();
     setStatus(error.message);
   }
+}
+
+function maybeAutoShare() {
+  if (autoShareStarted || !autoShareEl.checked || !deviceId) return;
+  autoShareStarted = true;
+  window.setTimeout(() => {
+    if (!role && autoShareEl.checked) {
+      shareThisComputer();
+    }
+  }, 700);
 }
 
 function normalizeVideoPoint(event) {
@@ -608,6 +656,13 @@ shareBtn.addEventListener("click", shareThisComputer);
 connectBtn.addEventListener("click", connectToComputer);
 testInputBtn.addEventListener("click", testLocalInput);
 translateShortcutsEl.addEventListener("change", saveShortcutSettings);
+autoShareEl.addEventListener("change", () => {
+  saveAutoShareSetting();
+  maybeAutoShare();
+});
+[serverUrlEl, turnUrlEl, turnUserEl, turnPasswordEl].forEach((element) => {
+  element.addEventListener("change", saveNetworkSettings);
+});
 disconnectBtn.addEventListener("click", () => {
   sendSignal({ type: "leave" });
   closeEverything();
@@ -618,12 +673,15 @@ window.addEventListener("focus", () => {
   if (!localStream) loadSources().catch((error) => setStatus(error.message));
 });
 attachViewerInput();
-loadShortcutSettings();
+loadSavedSettings();
 window.remoteDesktop
   .deviceId()
   .then((id) => {
     deviceId = id;
     deviceIdEl.textContent = id;
+    maybeAutoShare();
   })
   .catch((error) => setStatus(error.message));
-loadSources().catch((error) => setStatus(error.message));
+loadSources()
+  .then(() => maybeAutoShare())
+  .catch((error) => setStatus(error.message));
