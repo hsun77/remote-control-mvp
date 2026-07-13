@@ -413,13 +413,6 @@ async function connectToComputer() {
 
 async function maybeAutoShare() {
   if (autoShareStarted || !autoShareEl.checked || !deviceId) return;
-
-  const permission = await window.remoteDesktop.screenPermission();
-  if (!permission.ok) {
-    setStatus("Screen Recording permission is needed before unattended sharing can start");
-    return;
-  }
-
   autoShareStarted = true;
   window.setTimeout(() => {
     if (!role && autoShareEl.checked) {
