@@ -111,7 +111,13 @@ wss.on("connection", (ws) => {
       return;
     }
 
-    if (message.type === "offer" || message.type === "answer" || message.type === "ice-candidate") {
+    if (
+      message.type === "offer" ||
+      message.type === "answer" ||
+      message.type === "ice-candidate" ||
+      message.type === "control-event" ||
+      message.type === "control-ack"
+    ) {
       const room = rooms.get(ws.roomCode);
       const peer = getPeer(room, ws);
       if (!peer) {

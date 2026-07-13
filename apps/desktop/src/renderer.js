@@ -242,6 +242,16 @@ async function handleSignal(message) {
     return;
   }
 
+  if (message.type === "control-event") {
+    await handleControlMessage(JSON.stringify(message.event), "signal");
+    return;
+  }
+
+  if (message.type === "control-ack") {
+    await handleControlMessage(JSON.stringify(message.ack), "signal");
+    return;
+  }
+
   if (message.type === "peer-left") {
     setStatus("Peer left");
     closeEverything();
@@ -373,13 +383,17 @@ function normalizeVideoPoint(event) {
 
 function sendControl(event) {
   if (role !== "viewer") return;
-  if (!controlChannel || controlChannel.readyState !== "open") {
-    setControlStatus(`Control channel not ready: ${controlChannel?.readyState || "missing"}`, true);
-    return;
-  }
   controlSeq += 1;
   controlSentCount += 1;
-  controlChannel.send(JSON.stringify({ ...event, seq: controlSeq }));
+  const payload = { ...event, seq: controlSeq };
+  if (ws?.readyState === WebSocket.OPEN) {
+    sendSignal({ type: "control-event", event: payload });
+  } else if (controlChannel?.readyState === "open") {
+    controlChannel.send(JSON.stringify(payload));
+  } else {
+    setControlStatus("Control transport not ready", true);
+    return;
+  }
   if (event.type !== "mouseMove") {
     setControlStatus(`Sent ${event.type} to remote Mac`, true);
   }
@@ -486,7 +500,7 @@ function attachViewerInput() {
   });
 }
 
-async function handleControlMessage(raw) {
+async function handleControlMessage(raw, transport = "datachannel") {
   let message;
   try {
     message = JSON.parse(raw);
@@ -509,17 +523,19 @@ async function handleControlMessage(raw) {
 
   controlReceivedCount += 1;
   const result = await window.remoteDesktop.sendNativeInput(message);
-  if (controlChannel?.readyState === "open") {
-    controlChannel.send(
-      JSON.stringify({
-        type: "controlAck",
-        ok: result.ok,
-        error: result.error || "",
-        eventType: message.type,
-        seq: message.seq,
-        received: controlReceivedCount
-      })
-    );
+  const ack = {
+    type: "controlAck",
+    ok: result.ok,
+    error: result.error || "",
+    eventType: message.type,
+    seq: message.seq,
+    received: controlReceivedCount
+  };
+
+  if (transport === "signal" && ws?.readyState === WebSocket.OPEN) {
+    sendSignal({ type: "control-ack", ack });
+  } else if (controlChannel?.readyState === "open") {
+    controlChannel.send(JSON.stringify(ack));
   }
   if (!result.ok && result.error && result.error !== lastNativeInputError) {
     lastNativeInputError = result.error;
