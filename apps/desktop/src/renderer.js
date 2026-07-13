@@ -13,6 +13,7 @@ const connectBtn = $("connectBtn");
 const disconnectBtn = $("disconnectBtn");
 const testInputBtn = $("testInputBtn");
 const translateShortcutsEl = $("translateShortcuts");
+const lowLatencyEl = $("lowLatency");
 const autoShareEl = $("autoShare");
 const sourcesEl = $("sources");
 const remoteVideo = $("remoteVideo");
@@ -38,6 +39,7 @@ let inputCaptured = false;
 let lastControlStatusAt = 0;
 let autoShareStarted = false;
 const shortcutSettingKey = "remote-control.translate-shortcuts";
+const lowLatencySettingKey = "remote-control.low-latency";
 const autoShareSettingKey = "remote-control.auto-share";
 const savedFieldKeys = {
   serverUrl: "remote-control.server-url",
@@ -65,6 +67,7 @@ function saveShortcutSettings() {
 
 function loadSavedSettings() {
   loadShortcutSettings();
+  lowLatencyEl.checked = window.localStorage.getItem(lowLatencySettingKey) !== "false";
   autoShareEl.checked = window.localStorage.getItem(autoShareSettingKey) !== "false";
 
   const fields = { serverUrl: serverUrlEl, turnUrl: turnUrlEl, turnUser: turnUserEl, turnPassword: turnPasswordEl };
@@ -83,6 +86,10 @@ function saveNetworkSettings() {
 
 function saveAutoShareSetting() {
   window.localStorage.setItem(autoShareSettingKey, String(autoShareEl.checked));
+}
+
+function saveLowLatencySetting() {
+  window.localStorage.setItem(lowLatencySettingKey, String(lowLatencyEl.checked));
 }
 
 function getIceServers() {
@@ -246,13 +253,39 @@ function createControlChannel(mode) {
   );
 }
 
+async function tuneVideoSender(sender) {
+  if (!lowLatencyEl.checked || !sender?.getParameters) return;
+
+  const params = sender.getParameters();
+  params.degradationPreference = "maintain-framerate";
+  params.encodings = params.encodings?.length ? params.encodings : [{}];
+  params.encodings[0] = {
+    ...params.encodings[0],
+    maxBitrate: 1_200_000,
+    maxFramerate: 15,
+    scaleResolutionDownBy: 1.5
+  };
+
+  try {
+    await sender.setParameters(params);
+  } catch {
+    // Some WebRTC backends reject individual tuning knobs; capture constraints still apply.
+  }
+}
+
 async function startHostPeer() {
   closePeerConnection();
   pc = createPeerConnection();
   createControlChannel("host");
 
   for (const track of localStream.getTracks()) {
-    pc.addTrack(track, localStream);
+    if (track.kind === "video") {
+      track.contentHint = lowLatencyEl.checked ? "motion" : "detail";
+    }
+    const sender = pc.addTrack(track, localStream);
+    if (track.kind === "video") {
+      await tuneVideoSender(sender);
+    }
   }
 
   const offer = await pc.createOffer({
@@ -373,7 +406,13 @@ async function getDesktopStream() {
 
   return navigator.mediaDevices.getDisplayMedia({
     audio: false,
-    video: true
+    video: lowLatencyEl.checked
+      ? {
+          width: { ideal: 1280, max: 1280 },
+          height: { ideal: 720, max: 720 },
+          frameRate: { ideal: 15, max: 15 }
+        }
+      : true
   });
 }
 
@@ -682,6 +721,7 @@ shareBtn.addEventListener("click", shareThisComputer);
 connectBtn.addEventListener("click", connectToComputer);
 testInputBtn.addEventListener("click", testLocalInput);
 translateShortcutsEl.addEventListener("change", saveShortcutSettings);
+lowLatencyEl.addEventListener("change", saveLowLatencySetting);
 autoShareEl.addEventListener("change", () => {
   saveAutoShareSetting();
   maybeAutoShare();

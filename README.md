@@ -119,6 +119,18 @@ macOS 被控端需要系统授权：
 
 如果想按物理按键原样发送，可以在左侧 Keyboard 区域关闭这个开关。
 
+## 延迟优化
+
+桌面端默认开启 `Low latency video mode`，会降低共享画面的分辨率、帧率和码率，优先保证鼠标和画面响应速度。如果网络很好并且想要更清晰的画面，可以在左侧 Performance 区域关闭。
+
+如果使用 Tailscale，先检查两台机器是否直连：
+
+```bash
+tailscale ping 对方的Tailscale-IP
+```
+
+如果输出里出现 `via DERP`，说明流量走了 Tailscale 中继，延迟会明显高；如果是 `direct`，延迟通常会低很多。
+
 ## macOS 官方屏幕共享备用方案
 
 如果你主要想从 Windows 控制整台 Mac，最稳的是使用 Apple 官方 Screen Sharing/VNC，并通过 Tailscale 访问：
