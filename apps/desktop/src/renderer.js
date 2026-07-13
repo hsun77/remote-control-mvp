@@ -120,7 +120,7 @@ function sendSignal(message) {
   ws.send(JSON.stringify(message));
 }
 
-function closeEverything() {
+function closePeerConnection() {
   if (controlChannel) {
     controlChannel.close();
     controlChannel = null;
@@ -129,6 +129,19 @@ function closeEverything() {
     pc.close();
     pc = null;
   }
+  remoteVideo.srcObject = null;
+  stage.classList.remove("has-remote");
+}
+
+function keepHostSharing() {
+  closePeerConnection();
+  role = "host";
+  setConnectedState(true);
+  setStatus("Sharing remains available. Waiting for controller");
+}
+
+function closeEverything() {
+  closePeerConnection();
   if (ws) {
     ws.close();
     ws = null;
@@ -138,8 +151,7 @@ function closeEverything() {
     localStream = null;
   }
   localPreview.srcObject = null;
-  remoteVideo.srcObject = null;
-  stage.classList.remove("has-local", "has-remote");
+  stage.classList.remove("has-local");
   role = null;
   setConnectedState(false);
   setStatus("Ready");
@@ -235,6 +247,7 @@ function createControlChannel(mode) {
 }
 
 async function startHostPeer() {
+  closePeerConnection();
   pc = createPeerConnection();
   createControlChannel("host");
 
@@ -303,8 +316,12 @@ async function handleSignal(message) {
   }
 
   if (message.type === "peer-left") {
-    setStatus("Peer left");
-    closeEverything();
+    if (role === "host" && localStream && ws?.readyState === WebSocket.OPEN) {
+      keepHostSharing();
+    } else {
+      setStatus("Peer left");
+      closeEverything();
+    }
     return;
   }
 
@@ -673,6 +690,11 @@ autoShareEl.addEventListener("change", () => {
   element.addEventListener("change", saveNetworkSettings);
 });
 disconnectBtn.addEventListener("click", () => {
+  if (role === "host" && localStream && autoShareEl.checked) {
+    keepHostSharing();
+    return;
+  }
+
   sendSignal({ type: "leave" });
   closeEverything();
 });

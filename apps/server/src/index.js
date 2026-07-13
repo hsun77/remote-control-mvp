@@ -44,6 +44,18 @@ function findRoomByCodeOrDevice(identifier) {
   return null;
 }
 
+function deleteRoomsForHostDevice(deviceId) {
+  const value = String(deviceId ?? "").trim().toUpperCase();
+  if (!value) return;
+
+  for (const [code, room] of rooms.entries()) {
+    if (String(room.hostDeviceId ?? "").toUpperCase() === value) {
+      if (room.viewer) send(room.viewer, { type: "peer-left" });
+      rooms.delete(code);
+    }
+  }
+}
+
 function leaveCurrentRoom(ws) {
   if (!ws.roomCode) return;
   const room = rooms.get(ws.roomCode);
@@ -86,6 +98,7 @@ wss.on("connection", (ws) => {
 
     if (message.type === "create-room") {
       leaveCurrentRoom(ws);
+      deleteRoomsForHostDevice(message.deviceId);
       const code = makeCode();
       rooms.set(code, {
         host: ws,
