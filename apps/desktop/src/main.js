@@ -99,39 +99,23 @@ app.on("window-all-closed", () => {
 });
 
 ipcMain.handle("desktop:list-sources", async () => {
-  if (process.platform === "darwin") {
-    return [
-      {
-        id: "__picker__",
-        name: "Entire desktop",
-        displayId: "",
-        thumbnail: ""
-      }
-    ];
-  }
-
   try {
     const sources = await desktopCapturer.getSources({
       types: ["screen"],
       thumbnailSize: { width: 320, height: 180 }
     });
 
-    return sources.map((source) => ({
-      id: source.id,
-      name: source.name,
-      displayId: source.display_id,
-      thumbnail: source.thumbnail.toDataURL()
-    }));
+    return sources
+      .filter((source) => source.id.startsWith("screen:"))
+      .map((source) => ({
+        id: source.id,
+        name: process.platform === "darwin" ? "Entire desktop" : source.name,
+        displayId: source.display_id,
+        thumbnail: source.thumbnail.toDataURL()
+      }));
   } catch (error) {
-    return [
-      {
-        id: "__picker__",
-        name: "Use macOS screen picker",
-        displayId: "",
-        thumbnail: "",
-        warning: error.message
-      }
-    ];
+    console.error(`desktop source list failed: ${error.message}`);
+    return [];
   }
 });
 

@@ -270,17 +270,6 @@ async function refreshSourcesForShare() {
 }
 
 async function getDesktopStream(sourceId) {
-  if (sourceId === "__picker__") {
-    if (!navigator.mediaDevices?.getDisplayMedia) {
-      throw new Error("Screen picker is unavailable in this Electron build.");
-    }
-
-    return navigator.mediaDevices.getDisplayMedia({
-      audio: false,
-      video: true
-    });
-  }
-
   return navigator.mediaDevices.getUserMedia({
     audio: false,
     video: {
@@ -296,11 +285,6 @@ async function getDesktopStream(sourceId) {
 async function shareThisComputer() {
   if (!(await refreshSourcesForShare())) {
     return;
-  }
-
-  const inputStatus = await window.remoteDesktop.nativeInputStatus();
-  if (!inputStatus.ok && inputStatus.error) {
-    setStatus(inputStatus.error);
   }
 
   role = "host";
@@ -478,10 +462,4 @@ window.remoteDesktop
     deviceIdEl.textContent = id;
   })
   .catch((error) => setStatus(error.message));
-window.remoteDesktop
-  .nativeInputStatus()
-  .then((result) => {
-    if (!result.ok && result.error) setStatus(result.error);
-  })
-  .catch(() => {});
 loadSources().catch((error) => setStatus(error.message));
