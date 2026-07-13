@@ -160,6 +160,26 @@ napi_value IsTrusted(napi_env env, napi_callback_info info) {
   return make_result(env, AXIsProcessTrusted(), AXIsProcessTrusted() ? "" : "Remote Control MVP is not trusted for Accessibility");
 }
 
+napi_value RequestTrust(napi_env env, napi_callback_info info) {
+  if (AXIsProcessTrusted()) {
+    return make_result(env, true);
+  }
+
+  const void* keys[] = {kAXTrustedCheckOptionPrompt};
+  const void* values[] = {kCFBooleanTrue};
+  CFDictionaryRef options = CFDictionaryCreate(
+      kCFAllocatorDefault,
+      keys,
+      values,
+      1,
+      &kCFCopyStringDictionaryKeyCallBacks,
+      &kCFTypeDictionaryValueCallBacks);
+  const bool trusted = AXIsProcessTrustedWithOptions(options);
+  CFRelease(options);
+
+  return make_result(env, trusted, trusted ? "" : "Remote Control MVP is not trusted for Accessibility");
+}
+
 napi_value SendInput(napi_env env, napi_callback_info info) {
   size_t argc = 1;
   napi_value argv[1];
@@ -197,6 +217,10 @@ napi_value Init(napi_env env, napi_value exports) {
   napi_value is_trusted;
   napi_create_function(env, "isTrusted", NAPI_AUTO_LENGTH, IsTrusted, nullptr, &is_trusted);
   napi_set_named_property(env, exports, "isTrusted", is_trusted);
+
+  napi_value request_trust;
+  napi_create_function(env, "requestTrust", NAPI_AUTO_LENGTH, RequestTrust, nullptr, &request_trust);
+  napi_set_named_property(env, exports, "requestTrust", request_trust);
 
   napi_value send_input;
   napi_create_function(env, "sendInput", NAPI_AUTO_LENGTH, SendInput, nullptr, &send_input);

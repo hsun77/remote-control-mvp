@@ -152,7 +152,16 @@ ipcMain.handle("desktop:device-id", () => readOrCreateDeviceId());
 function checkInputPermission() {
   const addon = loadMacInputAddon();
   if (addon) {
-    return Promise.resolve({ ...addon.isTrusted(), helperPath: macInputAddonPath(), engine: "mac-input-addon" });
+    const trusted = addon.isTrusted();
+    if (trusted.ok) {
+      return Promise.resolve({ ...trusted, helperPath: macInputAddonPath(), engine: "mac-input-addon" });
+    }
+
+    return Promise.resolve({
+      ...addon.requestTrust(),
+      helperPath: macInputAddonPath(),
+      engine: "mac-input-addon"
+    });
   }
   if (process.platform === "darwin" && macInputAddonError) {
     return Promise.resolve({ ok: false, error: macInputAddonError, helperPath: macInputAddonPath(), engine: "mac-input-addon" });

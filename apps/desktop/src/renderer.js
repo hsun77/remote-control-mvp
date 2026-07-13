@@ -554,7 +554,7 @@ async function testLocalInput() {
   setStatus("Testing local input helper");
   const status = await window.remoteDesktop.nativeInputStatus();
   if (!status.ok) {
-    setStatus(status.error || "Local input helper is not allowed");
+    setStatus(status.error || "Enable Remote Control MVP in Accessibility, then restart the app");
     return;
   }
 
