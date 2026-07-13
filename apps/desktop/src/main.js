@@ -11,6 +11,13 @@ const projectRoot = path.resolve(__dirname, "../../..");
 let inputHelper = null;
 let lastInputHelperError = "";
 
+if (process.platform === "darwin") {
+  app.commandLine.appendSwitch(
+    "disable-features",
+    "ScreenCaptureKitPickerScreen,ScreenCaptureKitStreamPickerSonoma"
+  );
+}
+
 function readOrCreateDeviceId() {
   const file = path.join(app.getPath("userData"), "device.json");
   try {
