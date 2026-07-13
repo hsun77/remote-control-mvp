@@ -382,6 +382,18 @@ fn handle_event(enigo: &mut Enigo, event: &InputEvent) {
 
 fn main() {
     if std::env::args().any(|arg| arg == "--check-accessibility") {
+        if accessibility::is_trusted() {
+            println!("accessibility-ok");
+            std::process::exit(0);
+        }
+
+        eprintln!(
+            "macOS Accessibility permission is required. Enable Remote Control MVP and native-input-helper in System Settings > Privacy & Security > Accessibility, then restart Remote Control MVP."
+        );
+        std::process::exit(2);
+    }
+
+    if std::env::args().any(|arg| arg == "--request-accessibility") {
         if accessibility::request_if_needed() {
             println!("accessibility-ok");
             std::process::exit(0);
@@ -393,7 +405,7 @@ fn main() {
         std::process::exit(2);
     }
 
-    if !accessibility::request_if_needed() {
+    if !accessibility::is_trusted() {
         eprintln!(
             "macOS Accessibility permission is required. Enable Remote Control MVP and native-input-helper in System Settings > Privacy & Security > Accessibility, then restart Remote Control MVP."
         );
